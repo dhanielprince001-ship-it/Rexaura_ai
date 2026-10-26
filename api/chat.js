@@ -1,4 +1,3 @@
-// Vercel serverless function: POST /api/chat  { messages: [{role, content}] }
 const SYSTEM = `You are Aura AI, a friendly, concise personal assistant. You help people chat, create, summarize, draft, brainstorm and automate everyday work. Answer clearly in plain text (no markdown headings). Be honest when you are unsure. Keep answers short unless asked for detail.`;
 
 module.exports = async (req, res) => {
@@ -26,7 +25,7 @@ module.exports = async (req, res) => {
       }),
     });
     const data = await r.json();
-    if (!r.ok) return res.status(502).json({ error: 'The AI service returned an error. Try again.' });
+    if (!r.ok) return res.status(502).json({ error: (data.error && data.error.message) || 'The AI service returned an error.' });
     const reply = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
     return res.status(200).json({ reply: reply || 'I had nothing to say. Try rephrasing.' });
   } catch (e) {
