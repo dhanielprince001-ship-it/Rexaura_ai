@@ -2,8 +2,8 @@ const SYSTEM = `You are Aura AI, a friendly, concise personal assistant. You hel
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) return res.status(500).json({ error: 'Server is missing ANTHROPIC_API_KEY.' });
+  const key = process.env.GROQ_API_KEY;
+  if (!key) return res.status(500).json({ error: 'Server is missing GROQ_API_KEY.' });
 
   const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
   const messages = (Array.isArray(body.messages) ? body.messages : [])
@@ -14,19 +14,18 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: 'Send a message first.' });
 
   try {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key },
       body: JSON.stringify({
-        model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5',
+        model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
         max_tokens: 800,
-        system: SYSTEM,
-        messages,
+        messages: [{ role: 'system', content: SYSTEM }, ...messages],
       }),
     });
     const data = await r.json();
     if (!r.ok) return res.status(502).json({ error: (data.error && data.error.message) || 'The AI service returned an error.' });
-    const reply = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+    const reply = ((data.choices && data.choices[0] && data.choices[0].message.content) || '').trim();
     return res.status(200).json({ reply: reply || 'I had nothing to say. Try rephrasing.' });
   } catch (e) {
     return res.status(502).json({ error: 'Could not reach the AI service.' });
