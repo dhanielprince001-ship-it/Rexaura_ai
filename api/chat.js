@@ -1,5 +1,9 @@
 const SYSTEM = `You are Aura AI, a friendly, concise personal assistant. You help people chat, create, summarize, draft, brainstorm and automate everyday work. Answer clearly in plain text (no markdown headings). Be honest when you are unsure. Keep answers short unless asked for detail.`;
 
+// Questions that likely need fresh information from the web.
+const NEEDS_WEB = /\b(today|yesterday|tonight|tomorrow|latest|current(ly)?|now|recent(ly)?|news|this (week|month|year)|right now|score|won|winner|price|weather|stock|who is|who's|president|ceo|released?|trending|updates?|search|google|look up|20(2[3-9]|3\d))\b/i;
+
+// Optional: set REQUIRE_LOGIN=true in Vercel to only allow signed-in users to chat.
 async function authed(req) {
   if (process.env.REQUIRE_LOGIN !== 'true') return true;
   const t = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
@@ -11,6 +15,29 @@ async function authed(req) {
     return r.ok;
   } catch (e) { return false; }
 }
+
+// Optional: set TAVILY_API_KEY in Vercel to let Aura search the web for current questions.
+async function webSearch(messages) {
+  const key = process.env.TAVILY_API_KEY;
+  if (!key) return null;
+  const users = messages.filter(m => m.role === 'user');
+  const last = users[users.length - 1].content;
+  if (last.includes('[Attached file:') || !NEEDS_WEB.test(last)) return null;
+  let q = last.slice(0, 300);
+  if (q.length < 40 && users.length > 1) q = users[users.length - 2].content.slice(0, 200) + ' ' + q;
+  try {
+    const r = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key },
+      body: JSON.stringify({ query: q, search_depth: 'basic', max_results: 5 }),
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return (d.results || []).slice(0, 5);
+  } catch (e) { return null; }
+}
+
+const host = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return u; } };
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -26,6 +53,14 @@ module.exports = async (req, res) => {
   if (!messages.length || messages[messages.length - 1].role !== 'user')
     return res.status(400).json({ error: 'Send a message first.' });
 
+  const today = new Date().toUTCString().slice(0, 16);
+  let system = SYSTEM + `\nToday's date is ${today}.`;
+  const results = await webSearch(messages);
+  if (results && results.length) {
+    system += '\n\nLive web search results are below. Use them for anything current, prefer them over your training data, and say so if they are unclear or conflicting.\n' +
+      results.map((x, i) => `[${i + 1}] ${x.title} (${host(x.url)}): ${String(x.content || '').slice(0, 500)}`).join('\n');
+  }
+
   try {
     const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -33,13 +68,17 @@ module.exports = async (req, res) => {
       body: JSON.stringify({
         model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
         max_tokens: 800,
-        messages: [{ role: 'system', content: SYSTEM }, ...messages],
+        messages: [{ role: 'system', content: system }, ...messages],
       }),
     });
     const data = await r.json();
     if (!r.ok) return res.status(502).json({ error: (data.error && data.error.message) || 'The AI service returned an error.' });
-    const reply = ((data.choices && data.choices[0] && data.choices[0].message.content) || '').trim();
-    return res.status(200).json({ reply: reply || 'I had nothing to say. Try rephrasing.' });
+    let reply = ((data.choices && data.choices[0] && data.choices[0].message.content) || '').trim() || 'I had nothing to say. Try rephrasing.';
+    if (results && results.length) {
+      const hosts = [...new Set(results.slice(0, 3).map(x => host(x.url)))];
+      reply += '\n\nSources: ' + hosts.join(', ');
+    }
+    return res.status(200).json({ reply });
   } catch (e) {
     return res.status(502).json({ error: 'Could not reach the AI service.' });
   }
