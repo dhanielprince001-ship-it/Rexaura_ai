@@ -135,3 +135,5 @@ html,body{max-width:100%;overflow-x:hidden}
 .chp img{width:28px;height:28px;border-radius:50%;object-fit:cover}.chp span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chp button{background:none;border:0;color:var(--mu);cursor:pointer;font-size:18px;line-height:1}
 .th{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}.th img{max-width:140px;max-height:140px;border-radius:10px;object-fit:cover}
+.tob{position:absolute;right:22px;bottom:84px;width:40px;height:40px;border-radius:50%;border:1px solid var(--ln);background:rgba(20,21,48,.92);color:#fff;display:grid;place-items:center;cursor:pointer;z-index:2;box-shadow:0 6px 20px rgba(0,0,0,.4);transition:background .2s}
+.tob:hover{background:rgba(143,125,255,.5)}.tob svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
