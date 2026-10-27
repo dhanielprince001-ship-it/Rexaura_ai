@@ -41,14 +41,14 @@ $('#nmsg').textContent=r.error?r.error.message:'Password updated.';if(!r.error)$
 const log=$('#log');if(!log)return;
 const inp=$('#q'),form=$('#f'),send=$('#send'),att=$('#att'),file=$('#file'),sample=log.innerHTML;
 const hp=$('#hp'),hl=$('#hl'),hb=$('#hist');
-let busy=false,fresh=true,doc=null,uid='guest',chats=[],cur=null,sent=false;
+let busy=false,fresh=true,docs=[],uid='guest',chats=[],cur=null,sent=false;
 $$('a[href$="#chat"]').forEach(a=>a.addEventListener('click',()=>setTimeout(()=>inp.focus({preventScroll:true}),450)));
 const tm=()=>new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
 
 // saved chats (kept in this browser, separate per signed-in account)
 const KEY=()=>'aura:chats:'+uid;
 function load(){try{chats=JSON.parse(localStorage.getItem(KEY())||'[]')}catch(e){chats=[]}if(!Array.isArray(chats))chats=[]}
-function save(){let c=chats.slice(0,30);const r=(k,v)=>k==='content'&&typeof v==='string'&&v.length>8000?v.slice(0,8000):v;
+function save(){let c=chats.slice(0,30);const r=(k,v)=>k==='images'?undefined:k==='content'&&typeof v==='string'&&v.length>8000?v.slice(0,8000):v;
 for(;;){try{localStorage.setItem(KEY(),JSON.stringify(c,r));return}catch(e){if(c.length<=1)return;c.pop()}}}
 
 // replies with code blocks + copy button
@@ -66,22 +66,23 @@ const w=document.createElement('div');w.className='code',h=document.createElemen
 h.className='ch2';l.textContent=p.lang||'code';b.type='button';b.textContent='Copy';b.onclick=()=>copy(p.v,b);
 c.textContent=p.v;pre.append(c);h.append(l,b);w.append(h,pre);el.append(w)})}
 
-function add(role,txt,t){if(fresh){log.innerHTML='';fresh=false}
+function add(role,txt,t,imgs){if(fresh){log.innerHTML='';fresh=false}
 const d=document.createElement('div');d.className='m '+role;
 if(role==='ai')d.innerHTML='<b class="who">\u2726 Aura AI</b>';
 const s=document.createElement('div');s.className='bd';
-if(role==='ai')fill(s,txt);else s.textContent=txt;d.append(s);
+if(role==='ai')fill(s,txt);else s.textContent=txt;if(imgs&&imgs.length){const g=document.createElement('div');g.className='th';imgs.forEach(u=>{const m=document.createElement('img');m.src=u;m.alt='';g.append(m)});d.append(g)}d.append(s);
 if(role==='user'){const x=document.createElement('time');x.textContent=t||tm();d.append(x)}
 log.append(d);log.scrollTop=log.scrollHeight;return s}
 const warn=t=>add('ai',t).parentElement.classList.add('err');
 
-function showAtt(){att.hidden=!doc;att.innerHTML='';if(!doc)return;
-const s=document.createElement('span');s.textContent='\u{1F4CE} '+doc.name+(doc.cut?' (first 20,000 characters)':'');
-const x=document.createElement('button');x.type='button';x.textContent='\u00D7';x.setAttribute('aria-label','Remove file');x.onclick=()=>{doc=null;showAtt()};att.append(s,x)}
+function showAtt(){att.hidden=!docs.length;att.innerHTML='';docs.forEach((d,i)=>{const p=document.createElement('div'),s=document.createElement('span'),x=document.createElement('button');p.className='chp';
+if(d.img){const m=document.createElement('img');m.src=d.url;m.alt='';p.append(m)}
+s.textContent=(d.img?'':'\u{1F4CE} ')+d.name+(d.cut?' (first 20,000 characters)':'');
+x.type='button';x.textContent='\u00D7';x.setAttribute('aria-label','Remove');x.onclick=()=>{docs.splice(i,1);showAtt()};p.append(s,x);att.append(p)})}
 
-function openChat(c){cur=c;fresh=false;log.innerHTML='';doc=null;showAtt();
+function openChat(c){cur=c;fresh=false;log.innerHTML='';docs=[];showAtt();
 c.msgs.forEach(m=>add(m.role==='user'?'user':'ai',m.role==='user'?(m.shown||m.content):m.content,m.t))}
-function newChat(){cur=null;log.innerHTML=sample;fresh=true;doc=null;showAtt();toggle(false)}
+function newChat(){cur=null;log.innerHTML=sample;fresh=true;docs=[];showAtt();toggle(false)}
 function list(){hl.innerHTML='';if(!chats.length){hl.textContent='No saved chats yet.';return}
 chats.forEach(c=>{const r=document.createElement('div'),o=document.createElement('button'),t=document.createElement('b'),s=document.createElement('small'),x=document.createElement('button');
 r.className='hr';o.type=x.type='button';o.className='ho';x.className='hx';t.textContent=c.title||'Untitled chat';
@@ -95,23 +96,31 @@ $('#clr').onclick=()=>{if(chats.length&&confirm('Delete all saved chats on this 
 $('#reset').onclick=newChat;
 
 $('#add').onclick=()=>file.click();
-file.onchange=async()=>{const f=file.files[0];file.value='';if(!f)return;
-if(f.size>2e6)return warn('That file is too large. The limit is 2 MB.');
-let t;try{t=await f.text()}catch(e){return warn('I couldn\u2019t read that file.')}
-if(/[\u0000\uFFFD]/.test(t.slice(0,2000)))return warn('Only text files are supported (txt, md, csv, json, code). PDFs and images aren\u2019t supported yet.');
-doc={name:f.name,text:t.slice(0,20000),cut:t.length>20000};showAtt()};
+function shrink(f){return new Promise((ok,no)=>{const u=URL.createObjectURL(f),i=new Image();i.onload=()=>{const k=Math.min(1,1280/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.toDataURL('image/jpeg',.8))};i.onerror=()=>no();i.src=u})}
+file.onchange=async()=>{const fs=[...file.files];file.value='';
+for(const f of fs){
+if(docs.length>=3){warn('You can attach up to 3 files at a time.');break}
+if(f.type.startsWith('image/')){try{docs.push({img:1,name:f.name||'photo',url:await shrink(f)})}catch(e){warn('I couldn\u2019t open that photo. Try a JPEG or PNG.')}continue}
+if(f.size>2e6){warn('That file is too large. The limit is 2 MB.');continue}
+if(docs.some(d=>!d.img)){warn('Attach one text file at a time.');continue}
+let t;try{t=await f.text()}catch(e){warn('I couldn\u2019t read that file.');continue}
+if(/[\u0000\uFFFD]/.test(t.slice(0,2000))){warn('Only photos and text files are supported (txt, md, csv, json, code). PDFs aren\u2019t supported yet.');continue}
+docs.push({name:f.name,text:t.slice(0,20000),cut:t.length>20000})}
+showAtt()};
+function payload(c){let left=3;const o=c.msgs.slice(-20).map(m=>({role:m.role,content:m.content,images:m.images}));
+for(let i=o.length-1;i>=0;i--){const im=o[i].images;if(!im)continue;if(left<=0){delete o[i].images;continue}o[i].images=im.slice(0,left);left-=o[i].images.length}return o}
 
 async function ask(text){
-text=text.trim();if((!text&&!doc)||busy)return;
-const d=doc;doc=null;showAtt();const q=text||'Please review this file.';
+text=text.trim();if((!text&&!docs.length)||busy)return;
+const ds=docs;docs=[];showAtt();const imgs=ds.filter(d=>d.img).map(d=>d.url),q=text||(imgs.length?'What can you tell me about this?':'Please review this file.');
 busy=true;sent=true;send.disabled=true;inp.value='';toggle(false);
 if(!cur){cur={id:Date.now().toString(36),title:q.slice(0,40),ts:Date.now(),msgs:[]};chats.unshift(cur)}
-const c=cur,shown=q+(d?'\n\u{1F4CE} '+d.name:''),t=tm();
-add('user',shown,t);
-c.msgs.push({role:'user',content:q+(d?'\n\n[Attached file: '+d.name+(d.cut?' (truncated)':'')+']\n'+d.text:''),shown,t});save();
+const c=cur,shown=q+ds.map(d=>'\n'+(d.img?'\u{1F5BC} ':'\u{1F4CE} ')+d.name).join(''),t=tm();
+add('user',shown,t,imgs);
+c.msgs.push({role:'user',content:q+ds.filter(d=>!d.img).map(d=>'\n\n[Attached file: '+d.name+(d.cut?' (truncated)':'')+']\n'+d.text).join(''),shown,t,images:imgs.length?imgs:undefined});save();
 const slot=add('ai','');slot.innerHTML='<span class="typing"><i></i><i></i><i></i></span>';
 try{const h={'Content-Type':'application/json'};if(A.session)h.Authorization='Bearer '+A.session.access_token;
-const r=await fetch('/api/chat',{method:'POST',headers:h,body:JSON.stringify({messages:c.msgs.slice(-20).map(m=>({role:m.role,content:m.content}))})});
+const r=await fetch('/api/chat',{method:'POST',headers:h,body:JSON.stringify({messages:payload(c)})});
 const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Something went wrong. Please try again.');
 fill(slot,j.reply);c.msgs.push({role:'assistant',content:j.reply});c.ts=Date.now();chats=[c,...chats.filter(k=>k!==c)]}
 catch(e){slot.textContent=e.message;slot.parentElement.classList.add('err');c.msgs.pop();
