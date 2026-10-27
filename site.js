@@ -41,6 +41,9 @@ $('#nmsg').textContent=r.error?r.error.message:'Password updated.';if(!r.error)$
 const log=$('#log');if(!log)return;
 const inp=$('#q'),form=$('#f'),send=$('#send'),att=$('#att'),file=$('#file'),sample=log.innerHTML;
 const hp=$('#hp'),hl=$('#hl'),hb=$('#hist');
+const tob=$('#tob'),upd=()=>{tob.hidden=log.scrollHeight-log.scrollTop-log.clientHeight<80};
+log.addEventListener('scroll',upd,{passive:true});new MutationObserver(upd).observe(log,{childList:true,subtree:true});
+tob.onclick=()=>log.scrollTo({top:log.scrollHeight,behavior:'smooth'});
 let busy=false,fresh=true,docs=[],uid='guest',chats=[],cur=null,sent=false;
 $$('a[href$="#chat"]').forEach(a=>a.addEventListener('click',()=>setTimeout(()=>inp.focus({preventScroll:true}),450)));
 const tm=()=>new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
