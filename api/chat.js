@@ -49,9 +49,21 @@ module.exports = async (req, res) => {
   const messages = (Array.isArray(body.messages) ? body.messages : [])
     .filter(m => m && ['user', 'assistant'].includes(m.role) && typeof m.content === 'string' && m.content.trim())
     .slice(-20)
-    .map(m => ({ role: m.role, content: m.content.slice(0, 24000) }));
+    .map(m => ({
+      role: m.role,
+      content: m.content.slice(0, 24000),
+      images: Array.isArray(m.images) ? m.images.filter(u => typeof u === 'string' && u.startsWith('data:image/')).slice(0, 3) : [],
+    }));
   if (!messages.length || messages[messages.length - 1].role !== 'user')
     return res.status(400).json({ error: 'Send a message first.' });
+
+  // Keep at most 3 photos in total (newest first).
+  let left = 3;
+  for (let i = messages.length - 1; i >= 0; i--) { messages[i].images = messages[i].images.slice(0, left); left -= messages[i].images.length; }
+  const hasImg = messages.some(m => m.images.length);
+  const apiMessages = messages.map(m => m.images.length
+    ? { role: m.role, content: [{ type: 'text', text: m.content }, ...m.images.map(u => ({ type: 'image_url', image_url: { url: u } }))] }
+    : { role: m.role, content: m.content });
 
   const today = new Date().toUTCString().slice(0, 16);
   let system = SYSTEM + `\nToday's date is ${today}.`;
@@ -66,14 +78,14 @@ module.exports = async (req, res) => {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key },
       body: JSON.stringify({
-        model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
-        max_tokens: 800,
-        messages: [{ role: 'system', content: system }, ...messages],
+        model: hasImg ? (process.env.GROQ_VISION_MODEL || 'qwen/qwen3.8-27b') : (process.env.GROQ_MODEL || 'openai/gpt-oss-120b'),
+        max_tokens: hasImg ? 3000 : 800,
+        messages: [{ role: 'system', content: system }, ...apiMessages],
       }),
     });
     const data = await r.json();
     if (!r.ok) return res.status(502).json({ error: (data.error && data.error.message) || 'The AI service returned an error.' });
-    let reply = ((data.choices && data.choices[0] && data.choices[0].message.content) || '').trim() || 'I had nothing to say. Try rephrasing.';
+    let reply = ((data.choices && data.choices[0] && data.choices[0].message.content) || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim() || 'I had nothing to say. Try rephrasing.';
     if (results && results.length) {
       const hosts = [...new Set(results.slice(0, 3).map(x => host(x.url)))];
       reply += '\n\nSources: ' + hosts.join(', ');
