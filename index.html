@@ -22,7 +22,7 @@
 <div class="cta"><a class="btn p" href="#chat">Start Chatting &#8599;</a><a class="btn" href="/features.html">Learn More &#9655;</a></div>
 <p class="trust">Trusted by 10k+ creators &bull; Free to start &bull; No credit card required</p></div>
 <div class="gc chat" id="chat" role="region" aria-label="Aura AI chat">
-<div class="ch"><i class="dot"></i>AI Chat <span>&bull; Online</span><button id="reset" type="button">New chat</button></div>
+<div class="ch"><i class="dot"></i>AI Chat <span>&bull; Online</span><button id="hist" type="button" aria-expanded="false">History</button><button id="reset" type="button">New chat</button></div>
 <div class="log" id="log" aria-live="polite">
 <div class="m user">Summarize my meeting notes from today<time>Now</time></div>
 <div class="m ai"><b class="who">&#10022; Aura AI</b><b>Here’s a quick summary:</b><ul><li>Product launch moved to Oct 30</li><li>Design review needed for onboarding flow</li><li>Marketing campaign budget approved at $12k</li></ul><span>Want a detailed action list or email draft?</span></div>
@@ -32,6 +32,7 @@
 <input id="q" placeholder="Ask Aura anything..." aria-label="Message Aura" maxlength="2000" enterkeyhint="send">
 <button class="ic" id="mic" type="button" aria-label="Voice input"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/></svg></button>
 <button class="ic sd" id="send" type="submit" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M21 3L10 14M21 3l-7 18-4-7-7-4z"/></svg></button></form>
+<div class="hp" id="hp" hidden><div class="hph"><b>Chat history</b><button id="clr" type="button">Clear all</button></div><div id="hl"></div><p class="hn">Saved on this device only.</p></div>
 </div></section>
 <section class="w sec"><p class="eye">Features</p><h2>Everything you need, in one place</h2>
 <div class="g3">
