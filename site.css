@@ -125,3 +125,13 @@ h2.mt{font-size:28px;margin:44px 0 20px}
 .ch2 button{background:rgba(255,255,255,.1);border:1px solid var(--ln);color:var(--tx);border-radius:8px;font:500 12px Inter,sans-serif;padding:5px 10px;cursor:pointer}.ch2 button:hover{background:rgba(255,255,255,.2)}
 .code pre{margin:0;padding:12px;overflow-x:auto;white-space:pre;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;-webkit-overflow-scrolling:touch}
 .ic2{font:.9em ui-monospace,Menlo,monospace;background:rgba(255,255,255,.12);border-radius:5px;padding:1px 5px}
+html,body{max-width:100%;overflow-x:hidden}
+.hero>*,.two>*,.g3>*,.chat,.log,.m,.bd{min-width:0}
+.hero{grid-template-columns:minmax(0,1fr) minmax(0,1.05fr)}.two{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr)}
+@media(max-width:900px){.hero,.two{grid-template-columns:minmax(0,1fr)}}
+.m.ai{align-self:stretch;max-width:100%}.code{max-width:100%}
+.att{display:flex;flex-wrap:wrap;gap:8px;background:none;border:0;border-radius:0;padding:0;align-self:stretch}
+.chp{display:flex;align-items:center;gap:8px;font-size:13px;background:rgba(255,255,255,.1);border:1px solid var(--ln);border-radius:999px;padding:5px 8px 5px 6px;max-width:100%}
+.chp img{width:28px;height:28px;border-radius:50%;object-fit:cover}.chp span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chp button{background:none;border:0;color:var(--mu);cursor:pointer;font-size:18px;line-height:1}
+.th{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}.th img{max-width:140px;max-height:140px;border-radius:10px;object-fit:cover}
