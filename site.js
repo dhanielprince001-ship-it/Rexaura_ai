@@ -40,42 +40,90 @@ $('#nmsg').textContent=r.error?r.error.message:'Password updated.';if(!r.error)$
 // ---- chat ----
 const log=$('#log');if(!log)return;
 const inp=$('#q'),form=$('#f'),send=$('#send'),att=$('#att'),file=$('#file'),sample=log.innerHTML;
-let hist=[],busy=false,fresh=true,doc=null;
+const hp=$('#hp'),hl=$('#hl'),hb=$('#hist');
+let busy=false,fresh=true,doc=null,uid='guest',chats=[],cur=null,sent=false;
 $$('a[href$="#chat"]').forEach(a=>a.addEventListener('click',()=>setTimeout(()=>inp.focus({preventScroll:true}),450)));
 const tm=()=>new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
-function add(role,txt){if(fresh){log.innerHTML='';fresh=false}
+
+// saved chats (kept in this browser, separate per signed-in account)
+const KEY=()=>'aura:chats:'+uid;
+function load(){try{chats=JSON.parse(localStorage.getItem(KEY())||'[]')}catch(e){chats=[]}if(!Array.isArray(chats))chats=[]}
+function save(){let c=chats.slice(0,30);const r=(k,v)=>k==='content'&&typeof v==='string'&&v.length>8000?v.slice(0,8000):v;
+for(;;){try{localStorage.setItem(KEY(),JSON.stringify(c,r));return}catch(e){if(c.length<=1)return;c.pop()}}}
+
+// replies with code blocks + copy button
+function parse(t){return t.split('```').map((p,i)=>{
+if(i%2===0)return{k:'t',v:p.replace(/^\n+|\n+$/g,'')};
+const nl=p.indexOf('\n'),first=nl>-1?p.slice(0,nl).trim():'',lang=/^[\w+#.-]{1,15}$/.test(first)?first:'';
+return{k:'c',lang,v:(lang?p.slice(nl+1):p.replace(/^\n/,'')).replace(/\n+$/,'')}}).filter(x=>x.v)}
+function fb(t,done){const a=document.createElement('textarea');a.value=t;a.style.cssText='position:fixed;opacity:0';document.body.append(a);a.select();a.setSelectionRange(0,t.length);try{document.execCommand('copy');done()}catch(e){}a.remove()}
+function copy(t,b){const done=()=>{b.textContent='Copied!';setTimeout(()=>b.textContent='Copy',1600)};
+if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(t).then(done,()=>fb(t,done));else fb(t,done)}
+function fill(el,text){el.textContent='';parse(text).forEach(p=>{
+if(p.k==='t'){p.v.split(/(`[^`\n]+`)/).forEach(s=>{if(!s)return;
+if(s.length>2&&s[0]==='`'&&s.endsWith('`')){const c=document.createElement('code');c.className='ic2';c.textContent=s.slice(1,-1);el.append(c)}else el.append(s)});return}
+const w=document.createElement('div');w.className='code',h=document.createElement('div'),l=document.createElement('span'),b=document.createElement('button'),pre=document.createElement('pre'),c=document.createElement('code');
+h.className='ch2';l.textContent=p.lang||'code';b.type='button';b.textContent='Copy';b.onclick=()=>copy(p.v,b);
+c.textContent=p.v;pre.append(c);h.append(l,b);w.append(h,pre);el.append(w)})}
+
+function add(role,txt,t){if(fresh){log.innerHTML='';fresh=false}
 const d=document.createElement('div');d.className='m '+role;
 if(role==='ai')d.innerHTML='<b class="who">\u2726 Aura AI</b>';
-const s=document.createElement('span');s.textContent=txt;d.append(s);
-if(role==='user'){const t=document.createElement('time');t.textContent=tm();d.append(t)}
+const s=document.createElement('div');s.className='bd';
+if(role==='ai')fill(s,txt);else s.textContent=txt;d.append(s);
+if(role==='user'){const x=document.createElement('time');x.textContent=t||tm();d.append(x)}
 log.append(d);log.scrollTop=log.scrollHeight;return s}
 const warn=t=>add('ai',t).parentElement.classList.add('err');
-$('#reset').onclick=()=>{log.innerHTML=sample;hist=[];fresh=true;doc=null;att.hidden=true};
+
 function showAtt(){att.hidden=!doc;att.innerHTML='';if(!doc)return;
 const s=document.createElement('span');s.textContent='\u{1F4CE} '+doc.name+(doc.cut?' (first 20,000 characters)':'');
 const x=document.createElement('button');x.type='button';x.textContent='\u00D7';x.setAttribute('aria-label','Remove file');x.onclick=()=>{doc=null;showAtt()};att.append(s,x)}
+
+function openChat(c){cur=c;fresh=false;log.innerHTML='';doc=null;showAtt();
+c.msgs.forEach(m=>add(m.role==='user'?'user':'ai',m.role==='user'?(m.shown||m.content):m.content,m.t))}
+function newChat(){cur=null;log.innerHTML=sample;fresh=true;doc=null;showAtt();toggle(false)}
+function list(){hl.innerHTML='';if(!chats.length){hl.textContent='No saved chats yet.';return}
+chats.forEach(c=>{const r=document.createElement('div'),o=document.createElement('button'),t=document.createElement('b'),s=document.createElement('small'),x=document.createElement('button');
+r.className='hr';o.type=x.type='button';o.className='ho';x.className='hx';t.textContent=c.title||'Untitled chat';
+s.textContent=new Date(c.ts).toLocaleDateString([],{month:'short',day:'numeric'});o.append(t,s);
+o.onclick=()=>{openChat(c);toggle(false)};
+x.textContent='\u00D7';x.setAttribute('aria-label','Delete chat');
+x.onclick=()=>{chats=chats.filter(k=>k!==c);if(cur===c)newChat();save();list()};r.append(o,x);hl.append(r)})}
+function toggle(v){hp.hidden=!v;hb.setAttribute('aria-expanded',String(v));if(v)list()}
+hb.onclick=()=>toggle(hp.hidden);
+$('#clr').onclick=()=>{if(chats.length&&confirm('Delete all saved chats on this device?')){chats=[];save();newChat();list()}};
+$('#reset').onclick=newChat;
+
 $('#add').onclick=()=>file.click();
 file.onchange=async()=>{const f=file.files[0];file.value='';if(!f)return;
 if(f.size>2e6)return warn('That file is too large. The limit is 2 MB.');
 let t;try{t=await f.text()}catch(e){return warn('I couldn\u2019t read that file.')}
 if(/[\u0000\uFFFD]/.test(t.slice(0,2000)))return warn('Only text files are supported (txt, md, csv, json, code). PDFs and images aren\u2019t supported yet.');
 doc={name:f.name,text:t.slice(0,20000),cut:t.length>20000};showAtt()};
+
 async function ask(text){
 text=text.trim();if((!text&&!doc)||busy)return;
 const d=doc;doc=null;showAtt();const q=text||'Please review this file.';
-busy=true;send.disabled=true;inp.value='';
-add('user',q+(d?'\n\u{1F4CE} '+d.name:''));
-hist.push({role:'user',content:q+(d?'\n\n[Attached file: '+d.name+(d.cut?' (truncated)':'')+']\n'+d.text:'')});
+busy=true;sent=true;send.disabled=true;inp.value='';toggle(false);
+if(!cur){cur={id:Date.now().toString(36),title:q.slice(0,40),ts:Date.now(),msgs:[]};chats.unshift(cur)}
+const c=cur,shown=q+(d?'\n\u{1F4CE} '+d.name:''),t=tm();
+add('user',shown,t);
+c.msgs.push({role:'user',content:q+(d?'\n\n[Attached file: '+d.name+(d.cut?' (truncated)':'')+']\n'+d.text:''),shown,t});save();
 const slot=add('ai','');slot.innerHTML='<span class="typing"><i></i><i></i><i></i></span>';
 try{const h={'Content-Type':'application/json'};if(A.session)h.Authorization='Bearer '+A.session.access_token;
-const r=await fetch('/api/chat',{method:'POST',headers:h,body:JSON.stringify({messages:hist.slice(-20)})});
+const r=await fetch('/api/chat',{method:'POST',headers:h,body:JSON.stringify({messages:c.msgs.slice(-20).map(m=>({role:m.role,content:m.content}))})});
 const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Something went wrong. Please try again.');
-slot.textContent=j.reply;hist.push({role:'assistant',content:j.reply})}
-catch(e){slot.textContent=e.message;slot.parentElement.classList.add('err');hist.pop()}
-busy=false;send.disabled=false;log.scrollTop=log.scrollHeight;inp.focus({preventScroll:true})}
+fill(slot,j.reply);c.msgs.push({role:'assistant',content:j.reply});c.ts=Date.now();chats=[c,...chats.filter(k=>k!==c)]}
+catch(e){slot.textContent=e.message;slot.parentElement.classList.add('err');c.msgs.pop();
+if(!c.msgs.length){chats=chats.filter(k=>k!==c);if(cur===c)cur=null}}
+save();busy=false;send.disabled=false;log.scrollTop=log.scrollHeight;inp.focus({preventScroll:true})}
 form.onsubmit=e=>{e.preventDefault();ask(inp.value)};
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition,mic=$('#mic');
 if(!SR)mic.style.display='none';else{const rec=new SR();rec.lang=navigator.language||'en-US';
 rec.onresult=e=>{inp.value=e.results[0][0].transcript;inp.focus()};rec.onend=()=>mic.classList.remove('on');
 mic.onclick=()=>{if(mic.classList.contains('on')){rec.stop();return}mic.classList.add('on');try{rec.start()}catch(_){}}}
+
+// restore the most recent saved chat (and switch to the account's own chats once login is known)
+load();if(chats[0])openChat(chats[0]);
+A.ready.then(()=>{if(A.session&&!sent){uid=A.session.user.id;load();newChat();if(chats[0])openChat(chats[0])}});
 })();
