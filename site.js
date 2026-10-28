@@ -49,7 +49,7 @@ $$('a[href$="#chat"]').forEach(a=>a.addEventListener('click',()=>setTimeout(()=>
 const tm=()=>new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
 
 // saved chats (kept in this browser, separate per signed-in account)
-const KEY=()=>'aura:chats:'+uid;
+const KEY=()=>'rexaura:chats:'+uid;
 function load(){try{chats=JSON.parse(localStorage.getItem(KEY())||'[]')}catch(e){chats=[]}if(!Array.isArray(chats))chats=[]}
 function save(){let c=chats.slice(0,30);const r=(k,v)=>k==='images'?undefined:k==='content'&&typeof v==='string'&&v.length>8000?v.slice(0,8000):v;
 for(;;){try{localStorage.setItem(KEY(),JSON.stringify(c,r));return}catch(e){if(c.length<=1)return;c.pop()}}}
@@ -71,7 +71,7 @@ c.textContent=p.v;pre.append(c);h.append(l,b);w.append(h,pre);el.append(w)})}
 
 function add(role,txt,t,imgs){if(fresh){log.innerHTML='';fresh=false}
 const d=document.createElement('div');d.className='m '+role;
-if(role==='ai')d.innerHTML='<b class="who">\u2726 Aura AI</b>';
+if(role==='ai')d.innerHTML='<b class="who">\u2726 RexAura AI</b>';
 const s=document.createElement('div');s.className='bd';
 if(role==='ai')fill(s,txt);else s.textContent=txt;if(imgs&&imgs.length){const g=document.createElement('div');g.className='th';imgs.forEach(u=>{const m=document.createElement('img');m.src=u;m.alt='';g.append(m)});d.append(g)}d.append(s);
 if(role==='user'){const x=document.createElement('time');x.textContent=t||tm();d.append(x)}
