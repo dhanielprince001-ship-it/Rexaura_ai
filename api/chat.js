@@ -1,4 +1,4 @@
-const SYSTEM = `You are Aura AI, a friendly, concise personal assistant. You help people chat, create, summarize, draft, brainstorm and automate everyday work. Answer clearly in plain text (no markdown headings). Be honest when you are unsure. Keep answers short unless asked for detail.`;
+const SYSTEM = `You are RexAura AI, a friendly, concise personal assistant. You help people chat, create, summarize, draft, brainstorm and automate everyday work. Answer clearly in plain text (no markdown headings). Be honest when you are unsure. Keep answers short unless asked for detail.`;
 
 // Questions that likely need fresh information from the web.
 const NEEDS_WEB = /\b(today|yesterday|tonight|tomorrow|latest|current(ly)?|now|recent(ly)?|news|this (week|month|year)|right now|score|won|winner|price|weather|stock|who is|who's|president|ceo|released?|trending|updates?|search|google|look up|20(2[3-9]|3\d))\b/i;
@@ -16,7 +16,7 @@ async function authed(req) {
   } catch (e) { return false; }
 }
 
-// Optional: set TAVILY_API_KEY in Vercel to let Aura search the web for current questions.
+// Optional: set TAVILY_API_KEY in Vercel to let RexAura search the web for current questions.
 async function webSearch(messages) {
   const key = process.env.TAVILY_API_KEY;
   if (!key) return null;
