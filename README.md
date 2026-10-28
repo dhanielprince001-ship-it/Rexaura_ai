@@ -1,4 +1,4 @@
-# Aura AI
+# RexAura AI
 
 Static landing page (`index.html`) + serverless chat endpoint (`api/chat.js`).
 
